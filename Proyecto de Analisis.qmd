@@ -1,0 +1,754 @@
+---
+title: "Proyecto de Analisis Númerico"
+author: "Patricia Puga, Dario Ortiz, Jessica Janette"
+format: html
+editor: visual
+---
+
+```{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+from scipy.integrate import odeint
+from scipy.linalg import eigvals
+import pandas as pd
+```
+
+
+## Modelo IS-LM
+
+Se compone de ecuaciones estructurales con variables endógenas y exógenas, donde algunas ecuaciones son de comportamiento y otras son condiciones de equilibrio o identidades contables. Se considera que el sistema se verifica en cada momento del tiempo t y que el modelo se encuentra en equilibrio estático si los valores de las variables endógenas aseguran el vaciado de los mercados.
+
+**Supuestos básicos del modelo IS-LM** 
+Función IS: Y=C(Y−T)+I(r)+G 
+Función LM: M/P=L(Y,r)
+
+Con precios fijos: La exposición convencional del modelo IS-LM plantea una división entre una economía con desempleo involuntario y capital ocioso y otra con pleno empleo. El nivel de precios se encuentra fijado debido a la subutilización de factores y la ausencia de presión al alza en los salarios.
+
+En la representación de alguna grafica se observa que el punto de intersección de las curvas define el nivel de producto de pleno empleo, por lo que implícitamente se tiene que la Oferta Agregada es enteramente inelástica a los precios.
+
+**Modelo estatico**
+El modelo IS-LM (Inversión-Ahorro / Liquidez-Dinero) es un modelo macroeconómico que describe el equilibrio simultáneo en los mercados de bienes y servicios (IS) y en el mercado monetario (LM). Aunque en su forma básica es un modelo estático (es decir, no involucra ecuaciones diferenciales
+
+¿Qué hace este código? 
+Define las curvas IS y LM en términos de ingreso 𝑌y tasa de interés r.
+
+Calcula ambas curvas para un rango de tasas.
+
+```{python}
+
+#| code-fold: true
+#| fig-align: 'center'
+
+# Parámetros
+c0 = 20     # consumo autónomo
+c1 = 0.8    # propensión marginal a consumir
+T = 20      # impuestos
+i0 = 25     # inversión autónoma
+i1 = 5      # sensibilidad de la inversión a la tasa de interés
+G = 50      # gasto del gobierno
+M = 100     # oferta monetaria
+P = 1       # nivel de precios
+k = 0.5     # sensibilidad de la demanda de dinero al ingreso
+h = 4       # sensibilidad de la demanda de dinero a la tasa de interés
+
+# Rango de tasas de interés
+r = np.linspace(0.1, 10, 100)
+
+# Funciones IS y LM
+def is_curve(r):
+    Y = (c0 - c1*T + i0 - i1*r + G) / (1 - c1)
+    return Y
+
+def lm_curve(r):
+    Y = (M/P + h*r) / k
+    return Y
+
+# Calcular Y para cada r
+Y_is = is_curve(r)
+Y_lm = lm_curve(r)
+
+# Graficar
+plt.figure(figsize=(10, 6))
+plt.plot(Y_is, r, label='IS', color='hotpink')
+plt.plot(Y_lm, r, label='LM', color='orange')
+plt.xlabel('Ingreso (Y)')
+plt.ylabel('Tasa de interés (r)')
+plt.title('Modelo IS-LM')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+```
+
+
+Las grafica muestra  el equilibrio macroeconómico (intersección IS-LM).
+
+**Desplazamiento de la curva IS** Esto ocurre cuando hay un cambio en el Gasto del Gobierno (G) o los Impuestos (T), es decir, política fiscal.
+
+
+```{python}
+#| code-fold: true
+#| fig-align: 'center'
+
+# Parámetros
+c0 = 20
+c1 = 0.8
+T = 20
+i0 = 25
+i1 = 5
+G = 50
+G_new = 70  # Aumento del gasto público
+P = 1
+M = 100
+k = 0.5
+h = 4
+
+# Rango de tasas de interés
+r = np.linspace(0.1, 10, 100)
+
+# Curvas IS
+def is_curve(r, G_value):
+    return (c0 - c1*T + i0 - i1*r + G_value) / (1 - c1)
+
+# Curva LM (constante en este ejemplo)
+def lm_curve(r):
+    return (M/P + h*r) / k
+
+# Calcular Y
+Y_is = is_curve(r, G)
+Y_is2 = is_curve(r, G_new)
+Y_lm = lm_curve(r)
+
+# Gráfica
+plt.figure(figsize=(10, 6))
+plt.plot(Y_is, r, label='IS original (G = 50)', color='hotpink')
+plt.plot(Y_is2, r, label='IS desplazada (G = 70)', color='pink', linestyle='--')
+plt.plot(Y_lm, r, label='LM (constante)', color='yellow')
+
+plt.xlabel('Ingreso (Y)')
+plt.ylabel('Tasa de interés (r)')
+plt.title('Desplazamiento de la curva IS (política fiscal expansiva)')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+```
+
+**Desplazamiento de la curva LM (por aumento en M)** Esto sucede con cambios en la oferta monetaria (M), es decir, política monetaria.
+
+
+```{python}
+#| code-fold: true
+#| fig-align: 'center'
+#| 
+# Parámetros
+c0 = 20
+c1 = 0.8
+T = 20
+i0 = 25
+i1 = 5
+G = 50
+M = 100
+M_new = 130  # Aumento de la oferta monetaria
+P = 1
+k = 0.5
+h = 4
+
+# Rango de tasas de interés
+r = np.linspace(0.1, 10, 100)
+
+# Curva IS (constante en este ejemplo)
+def is_curve(r):
+    return (c0 - c1*T + i0 - i1*r + G) / (1 - c1)
+
+# Curvas LM
+def lm_curve(r, M_value):
+    return (M_value/P + h*r) / k
+
+# Calcular Y
+Y_is = is_curve(r)
+Y_lm = lm_curve(r, M)
+Y_lm2 = lm_curve(r, M_new)
+
+# Gráfica
+plt.figure(figsize=(10, 6))
+plt.plot(Y_is, r, label='IS (constante)', color='hotpink')
+plt.plot(Y_lm, r, label='LM original (M = 100)', color='yellow')
+plt.plot(Y_lm2, r, label='LM desplazada (M = 130)', color='orange', linestyle='--')
+
+plt.xlabel('Ingreso (Y)')
+plt.ylabel('Tasa de interés (r)')
+plt.title('Desplazamiento de la curva LM (política monetaria expansiva)')
+plt.legend()
+plt.grid(True)
+plt.show()
+```
+
+## Modelo Dinamico
+
+Las versiones dinámicas del modelo IS-LM sí emplean ecuaciones diferenciales para analizar cómo evoluciona la economía en el tiempo hacia el equilibrio.
+
+La curva IS representa el equilibrio en el mercado de bienes, donde la producción (Y) depende del gasto agregado. En la versión dinámica, se puede asumir que el nivel de producción no se ajusta instantáneamente, sino que sigue una ecuación diferencial que describe cómo cambia la producción en el tiempo.
+
+
+## Modelo dinámico de la curva IS
+
+La ecuación diferencial es:
+
+$$
+\frac{dr}{dt} = \alpha \left( a - b r - Y \right) 
+$$
+
+
+
+Esta ecuación dice que el producto (Y) cambia gradualmente para igualar la demanda agregada.
+
+
+```{python}
+#| code-fold: true
+
+#| fig-align: 'center'
+
+# Parámetros del modelo IS
+
+a = 50     # gasto autónomo
+
+b = 5      # sensibilidad de inversión al interés
+
+r = 2       # tasa de interés fija
+
+alpha = 0.5 # velocidad de ajuste del ingreso
+
+ 
+
+# Ecuación diferencial de la curva IS dinámica
+
+def is_dinamica(t, Y):
+
+    dYdt = alpha * (a - b * r - Y)
+
+    return dYdt
+
+ 
+
+# Condición inicial y tiempo de simulación
+
+Y0 = [50]                # ingreso inicial
+
+t_span = (0, 50)
+
+t_eval = np.linspace(*t_span, 500)
+
+ 
+
+# Resolver la ecuación diferencial
+
+sol = solve_ivp(is_dinamica, t_span, Y0, t_eval=t_eval)
+
+ 
+
+# Graficar resultado
+
+plt.figure(figsize=(8,5))
+
+plt.plot(sol.t, sol.y[0], label='Ingreso Y(t)')
+
+plt.axhline(a - b * r, color='red', linestyle='--', label='Y de equilibrio')
+
+plt.xlabel('Tiempo')
+
+plt.ylabel('Ingreso (Y)')
+
+plt.title('Ajuste dinámico de la curva IS')
+
+plt.legend()
+
+plt.grid(True)
+
+plt.show()
+```
+
+¿Qué muestra este gráfico?
+
+El gráfico ilustra cómo el ingreso (Y) de una economía cambia a lo largo del tiempo y se ajusta hacia su nivel de equilibrio de acuerdo con la dinámica del modelo IS.
+
+El ingreso no se ajusta instantáneamente, sino gradualmente, hacia el equilibrio.
+Este ajuste es más rápido cuanto mayor es alpha
+
+Curva azul:
+Representa la trayectoria del ingreso Y(t) a lo largo del tiempo.
+
+Si el ingreso inicial Y = 50 está por encima del equilibrio, el ingreso disminuye gradualmente.
+
+Es un modelo útil para mostrar cómo una economía corrige desequilibrios en el corto plazo dentro del marco IS.
+
+El gráfico muestra que la economía comienza en una situación de desequilibrio (ingreso diferente de la demanda agregada) y se ajusta gradualmente hasta alcanzar un nuevo equilibrio estable. Este proceso es lento, pero converge, siempre que α>0 
+
+
+## Modelo Dinámico de la Curva LM
+
+La ecuación diferencial que describe esta dinámica es:
+
+$$
+\frac{dr}{dt} = \beta (cY - dr - \frac{M}{P})
+$$
+
+
+```{python}
+#| code-fold: true
+
+#| fig-align: 'center'
+
+# Parámetros del modelo LM
+
+c = 0.5       # sensibilidad al ingreso
+
+d = 4      # sensibilidad a la tasa de interés
+
+Y = 80      # ingreso constante
+
+M_P = 100    # oferta real de dinero
+
+beta = 0.5  # velocidad de ajuste de la tasa de interés
+
+ 
+
+# Ecuación diferencial de la curva LM dinámica
+
+def lm_dinamica(t, r):
+
+    drdt = beta * (c * Y - d * r - M_P)
+
+    return drdt
+
+ 
+
+# Condición inicial y tiempo de simulación
+
+r0 = [0.5]              # tasa de interés inicial
+
+t_span = (0, 50)
+
+t_eval = np.linspace(*t_span, 500)
+
+ 
+
+# Resolver la ecuación diferencial
+
+sol = solve_ivp(lm_dinamica, t_span, r0, t_eval=t_eval)
+
+# Graficar resultado
+
+plt.figure(figsize=(8,5))
+
+plt.plot(sol.t, sol.y[0], label='Tasa de interés r(t)')
+
+plt.axhline((c * Y - M_P) / d, color='red', linestyle='--', label='r de equilibrio')
+
+plt.xlabel('Tiempo')
+
+plt.ylabel('Tasa de interés (r)')
+
+plt.title('Ajuste dinámico de la curva LM')
+
+plt.legend()
+
+plt.grid(True)
+
+plt.show()
+
+```
+
+¿Qué muestra este gráfico?
+
+El gráfico muestra cómo la tasa de interés r(t) evoluciona con el tiempo hacia un valor de equilibrio. Este comportamiento es resultado de la interacción entre la oferta y demanda de dinero. El sistema converge siempre que β\>0, lo que garantiza un proceso de ajuste estable.
+
+Cómo la tasa de interés (r) se ajusta con el tiempo para equilibrar el mercado de dinero. El equilibrio se alcanza en: r = (c Y - d r - \frac{M}{P} \right) La línea roja punteada indica ese valor de equilibrio.
+
+Análisis económico:
+Este gráfico muestra cómo se ajusta la tasa de interés para equilibrar el mercado de dinero.
+
+El sistema converge hacia un valor estable si  β>0, como en este caso. Refleja que si hay más demanda de dinero que oferta, r sube. Si hay más oferta de dinero que demanda,r baja.
+
+**Modelo IS-LM Dinámico Completo**
+
+El sistema de ecuaciones diferenciales es:
+
+\begin{cases} \frac{dY}{dt} = \alpha \left( a - b r - Y \right) \quad \text{(curva IS dinámica)} \\ \frac{dr}{dt} = \beta \left( c Y - d r - \frac{M}{P} \right) \quad \text{(curva LM dinámica)} \end{cases}
+
+Este sistema muestra cómo se ajustan el ingreso Y y la tasa de interés r con el tiempo.
+
+```{python}
+#| code-fold: true
+
+#| fig-align: 'center'
+# Parámetros del modelo
+
+a = 100     # gasto autónomo
+
+b = 20      # sensibilidad de inversión al interés
+
+c = 1       # sensibilidad demanda de dinero al ingreso
+
+d = 10      # sensibilidad demanda de dinero al interés
+
+M_P = 50    # oferta real de dinero
+
+alpha = 0.5 # velocidad de ajuste del ingreso
+
+beta = 0.5  # velocidad de ajuste del interés
+
+ 
+
+# Sistema IS-LM dinámico
+
+def is_lm_dinamico(t, z):
+
+    Y, r = z
+
+    dYdt = alpha * (a - b * r - Y)
+
+    drdt = beta * (c * Y - d * r - M_P)
+
+    return [dYdt, drdt]
+
+# Condiciones iniciales y tiempo
+
+z0 = [50, 0.5]              # Y inicial, r inicial
+
+t_span = (0, 20)
+
+t_eval = np.linspace(*t_span, 5000)
+
+ 
+
+# Resolver el sistema
+
+sol = solve_ivp(is_lm_dinamico, t_span, z0, t_eval=t_eval)
+
+ 
+
+# Extraer soluciones
+
+Y_sol, r_sol = sol.y
+
+ 
+
+# Graficar trayectoria en el plano (Y, r)
+
+plt.figure(figsize=(12, 5))
+
+ 
+
+plt.subplot(1, 2, 1)
+
+plt.plot(Y_sol, r_sol, color='blue')
+
+plt.xlabel('Ingreso (Y)')
+
+plt.ylabel('Tasa de interés (r)')
+
+plt.title('Trayectoria dinámica en el espacio (Y, r)')
+
+plt.grid(True)
+
+ 
+
+# Graficar evolución temporal de Y y r
+
+plt.subplot(1, 2, 2)
+
+plt.plot(sol.t, Y_sol, label='Ingreso Y(t)', color='green')
+
+plt.plot(sol.t, r_sol, label='Tasa de interés r(t)', color='purple')
+
+plt.xlabel('Tiempo')
+
+plt.title('Evolución temporal de Y y r')
+
+plt.legend()
+
+plt.grid(True)
+
+ 
+
+plt.tight_layout()
+
+plt.show()
+```
+
+¿Qué se hace con este modelo?
+
+Simular políticas fiscales: cambia el valor de a (por ejemplo, aumenta el gasto público). Simular políticas monetarias: cambia el valor de M/PM. Analizar la estabilidad dinámica: ver si el sistema converge al equilibrio y cómo lo hace.
+
+## Modelo aplicado en la economia de mexico
+
+En el periodo de 2020 a 2023, se analizaran los datos macroeconomicos de Mexico. Usamos el PIB Real y la Tasa de Interés del año 2020 como condiciones iniciales.
+
+```{python}
+
+#| code-fold: true
+#| fig-align: 'center'
+
+ 
+
+# Datos macroeconómicos
+
+data = {
+
+    'Año': [2020, 2021, 2022, 2023],
+
+    'PIB Real': [19.14, 21.37, 23.55, 24.98],
+
+    'Tasa de I ': [4.25, 5.00, 7.50, 11.00],
+
+    'Oferta Monetaria ': [8.53, 10.18, 11.27, 13.80],
+
+    'Inflación': [3.4, 5.7, 8.0, 5.5]
+
+}
+
+ 
+
+# Crear DataFrame
+
+df = pd.DataFrame(data)
+
+# Eliminar espacios en los nombres de las columnas
+df.columns = df.columns.str.strip()
+
+# Parámetros base del modelo IS-LM (puedes ajustar estos parámetros)
+alpha = 0.5   # Velocidad de ajuste en la curva IS
+beta = 0.4    # Velocidad de ajuste en la curva LM
+A = 30        # Gasto autónomo (para efectos del modelo)
+c = 0.4       # Propensión marginal a consumir
+d = 25        # Sensibilidad de la inversión a la tasa de interés
+e = 0.5       # Sensibilidad de la demanda de dinero al ingreso
+f = 10        # Sensibilidad de la demanda de dinero a la tasa de interés
+M_base = 10   # Oferta monetaria base (ajustable)
+inflacion_media = df['Inflación'].mean() / 100
+M_real = M_base / (1 + inflacion_media)
+
+```
+
+***Ecuaciones.*** Usaremos un sistema de ecuaciones diferenciales ordinarias (EDO). Se utiliza para simular cómo evolucionan dos variables clave en una economía:
+
+Y: el PIB real (nivel de producción)
+
+i: la tasa de interés
+
+```{python}
+#| code-fold: true
+
+#| fig-align: 'center'
+
+# Sistema de ecuaciones diferenciales IS-LM
+def is_lm_system(y, t):
+    Y, i = y
+    # Función IS: Relación entre el PIB y la tasa de interés
+    dYdt = alpha * (A - c*Y - d*i)
+    # Función LM: Relación entre la oferta monetaria y la tasa de interés
+    didt = beta * (e*Y - f*i - M_real)
+    return [dYdt, didt]
+
+```
+
+***Resolucion.***
+
+Simularemos la evolución del PIB real (Y) y la tasa de interés (i) a lo largo del tiempo (0 a 50 años).
+
+Utiliza un sistema de ecuaciones diferenciales para representar la interacción dinámica entre el mercado de bienes (IS) y el monetario (LM).
+
+Mostrar una gráfica visual del comportamiento de ambas variables que muestra cómo el PIB Real (en azul) y la Tasa de Interés (en rojo) evolucionan con el tiempo, bajo las ecuaciones dinámicas IS-LM.
+
+```{python}
+
+#| code-fold: true
+
+#| fig-align: 'center'
+#| 
+# Eliminar espacios en los nombres de las columnas
+df.columns = df.columns.str.strip()
+
+# Condiciones iniciales: PIB (Y) y tasa de interés (i) en 2020
+Y0 = df['PIB Real'][0]    # PIB Real en 2020
+i0 = df['Tasa de I'][0]  # Tasa de interés en 2020
+y0 = [Y0, i0]
+
+# Tiempo de simulación: de 0 a 50 años, con 500 puntos
+t = np.linspace(0, 5, 50)
+
+# Resolver el sistema de ecuaciones diferenciales
+sol = odeint(is_lm_system, y0, t)
+
+# Graficar los resultados
+plt.figure(figsize=(12, 6))
+
+# PIB Real (Y) y Tasa de Interés (i)
+plt.plot(t, sol[:, 0], label='PIB Real (Y)', color='blue')
+plt.plot(t, sol[:, 1], label='Tasa de Interés (i)', color='red')
+
+# Títulos y etiquetas
+plt.title('Simulación Dinámica IS-LM para la Economía de México')
+plt.xlabel('Tiempo (años)')
+plt.ylabel('Valores')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+df.columns = df.columns.str.strip()
+```
+
+***Posible cambio para análisis de estabilidad*** Analiza,os el comportamiento a largo plazo para evaluar la estabilidad del modelo y los posibles ciclos económicos. Para esto, calcularemos los autovalores de la matriz jacobiana del sistema de ecuaciones diferenciales.
+
+```{python}
+#| code-fold: true
+
+#| fig-align: 'center'
+
+# Datos proporcionados de México (2020-2023)
+data = {
+    'Año': [2020, 2021, 2022, 2023],
+    'PIB Real': [19.14, 21.37, 23.55, 24.98],
+    'Tasa de I': [4.25, 5.00, 7.50, 11.00],
+    'Oferta Monetaria': [8.53, 10.18, 11.27, 13.80],
+    'Inflación': [3.4, 5.7, 8.0, 5.5]
+}
+
+# Crear DataFrame de los datos
+df = pd.DataFrame(data)
+
+# Parámetros base del modelo IS-LM (ajustables)
+alpha = 0.5   # Velocidad de ajuste en la curva IS
+beta = 0.4    # Velocidad de ajuste en la curva LM
+A = 30        # Gasto autónomo
+c = 0.4       # Propensión marginal a consumir
+d = 25        # Sensibilidad de la inversión a la tasa de interés
+e = 0.5       # Sensibilidad de la demanda de dinero al ingreso
+f = 10        # Sensibilidad de la demanda de dinero a la tasa de interés
+M_base = 10   # Oferta monetaria base (ajustable)
+inflacion_media = df['Inflación'].mean() / 100
+M_real = M_base / (1 + inflacion_media)
+
+```
+
+***Ecuacion y Solucion.*** Se calcula la matriz Jacobiana que contiene las derivadas parciales de las ecuaciones dinámicas respecto a las variables Y e i.
+
+```{python}
+#| code-fold: true
+
+#| fig-align: 'center'
+
+# Función que resuelve las ecuaciones IS-LM
+def is_lm_system(y, t):
+    Y, i = y
+    dYdt = alpha * (A - c*Y - d*i)  # Ecuación de la curva IS
+    didt = beta * (e*Y - f*i - M_real)  # Ecuación de la curva LM
+    return [dYdt, didt]
+
+# Punto de equilibrio (resolver IS y LM)
+def punto_equilibrio():
+    # Resolviendo las ecuaciones simultáneas A = cY + d * i y M = e * Y - f * i
+    # Para esto, despejamos Y e i
+    A_eq = A
+    M_eq = M_real
+    
+    # Resolviendo el sistema
+    # IS: A = c * Y + d * i => i = (A - c * Y) / d
+    # LM: M = e * Y - f * i => sustituimos i
+    def sistema(Y):
+        i = (A_eq - c * Y) / d
+        return e * Y - f * i - M_eq
+    
+    # Encontrar el equilibrio resolviendo la ecuación para Y
+    from scipy.optimize import fsolve
+    Y_eq = fsolve(sistema, 10)[0]  # Valor inicial para encontrar la raíz
+    
+    # Sustituir Y_eq en la ecuación de IS para obtener i_eq
+    i_eq = (A_eq - c * Y_eq) / d
+    return Y_eq, i_eq
+```
+
+***Punto de equilibrio.*** Si los autovalores tienen partes reales negativas, el sistema es estable. Si tienen partes reales positivas, el sistema es inestable.La matriz Jacobiana es una herramienta clave para analizar la estabilidad dinámica de un sistema de ecuaciones diferenciales. En este contexto, la matriz Jacobiana permite entender cómo las pequeñas variaciones en el sistema afectan al equilibrio.
+
+Esta matriz nos muestra cómo reaccionan las tasas de cambio de Y y i a pequeñas perturbaciones en su entorno.
+
+```{python}
+
+#| code-fold: true
+
+#| fig-align: 'center'
+
+# Calcular el punto de equilibrio
+Y_eq, i_eq = punto_equilibrio()
+print(f"Punto de Equilibrio: PIB = {Y_eq:.2f}, Tasa de interés = {i_eq:.2f}%")
+
+# Derivadas parciales para la matriz Jacobiana
+def jacobiana(Y, i):
+    dY_dY = -alpha * c     # Parcial de dY/dt respecto a Y
+    dY_di = -alpha * d     # Parcial de dY/dt respecto a i
+    di_dY = beta * e       # Parcial de di/dt respecto a Y
+    di_di = -beta * f      # Parcial de di/dt respecto a i
+    J = np.array([[dY_dY, dY_di], [di_dY, di_di]])
+    return J
+
+# Calcular la matriz Jacobiana en el punto de equilibrio
+J_eq = jacobiana(Y_eq, i_eq)
+print("Matriz Jacobiana en el punto de equilibrio:")
+print(J_eq)
+
+# Calcular los autovalores de la matriz Jacobiana
+autovalores = eigvals(J_eq)
+print("Autovalores de la matriz Jacobiana:", autovalores)
+
+# Estabilidad:
+if np.all(np.real(autovalores) < 0):
+    print("El punto de equilibrio es estable.")
+else:
+    print("El punto de equilibrio es inestable.")
+
+```
+
+***Graficar.*** Bajo los parámetros y condiciones simuladas, la economía mexicana entre 2020–2023 se comporta como un sistema estable en el modelo IS-LM. El equilibrio identificado implica una producción saludable con una tasa de interés baja, y el análisis dinámico muestra que este equilibrio es estable y alcanzable tras perturbaciones moderadas.
+
+```{python}
+
+#| code-fold: true
+
+#| fig-align: 'center'
+
+
+
+# Gráfica llamativa
+plt.figure(figsize=(10, 6))
+plt.plot(t, sol[:, 0], label='PIB Real (Y)', color='navy', linewidth=2.5)
+plt.plot(t, sol[:, 1], label='Tasa de Interés (i)', color='crimson', linewidth=2.5)
+plt.axhline(Y_eq, color='blue', linestyle='--', linewidth=1.5, label=f'Equilibrio Y = {Y_eq}')
+plt.axhline(i_eq, color='red', linestyle='--', linewidth=1.5, label=f'Equilibrio i = {i_eq}%')
+
+# Estilo visual
+plt.title('Modelo Dinámico IS-LM – Punto de Equilibrio Estable', fontsize=14, weight='bold')
+plt.xlabel('Tiempo (años)', fontsize=12)
+plt.ylabel('Valores Económicos', fontsize=12)
+plt.legend()
+plt.grid(True, linestyle=':', alpha=0.7)
+plt.tight_layout()
+plt.show()
+```
+
+Al iniciar con un PIB bajo (Y = 20) y una tasa de interés alta (i = 8), el sistema está fuera del equilibrio.
+
+Las ecuaciones diferenciales reflejan cómo los agentes económicos reaccionan a este desequilibrio:
+
+El PIB tiende a subir porque el gasto agregado (demanda) supera la producción actual.
+
+La tasa de interés baja, ya que hay exceso de oferta monetaria en el mercado.
+
+Con el paso del tiempo, ambas variables convergen al equilibrio ( 𝑌 = 32.52 , 𝑖 = 0.68 ) (Y=32.52,i=0.68).
+
+La matriz Jacobiana del sistema tiene autovalores negativos (\[-1.046, -3.153\]). Eso significa que cualquier perturbación inicial desaparecerá con el tiempo, y el sistema regresará al punto de equilibrio. Visualmente, esto se refleja en las curvas que se estabilizan horizontalmente.
+
+Autovalores negativos: Esto sugiere que cualquier pequeña perturbación (ya sea un aumento o disminución en el PIB o la tasa de interés) hará que el sistema regrese al punto de equilibrio sin causar inestabilidad.
+
+El sistema es dinámicamente estable: Esto significa que, si se producen cambios inesperados (como un shock económico), el sistema de la economía mexicana tenderá a ajustarse de vuelta al equilibrio con el tiempo.
