@@ -1,0 +1,103 @@
+---
+title: "Tarea 3. Parte 1 Preliminares Get Data"
+author: "Patty Puga"
+date: "2025-03-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(tidyverse)
+library(pracma)
+library(plotly)
+library(MASS)
+#library(ISLR2)
+library(car)
+library(corrplot)
+library(rgl)
+library(scatterPlotMatrix)
+
+
+library(openxlsx)
+library(readxl)
+library(writexl)
+library(quantmod)
+library(xts)
+library(zoo)
+library(dygraphs)
+knitr::knit_hooks$set(webgl = hook_webgl)
+
+```
+
+
+# Indicadores económicos INEGI
+
+Inicialmente es necesario descargar el archivo de las series originales mensuales de los indicadores económicos que proporciona el [INEGI] desde las filas 2 hasta la 386.
+
+
+```{r}
+readxl::read_excel("C:/Users/alema/Downloads/Analisis Númerico/Ejemplos Clase/BIE.xlsx")
+
+```
+
+
+Para que el periodo tenga formato de fecha es necesario utilizar la función `ym` (year-month) del package `lubridate`.
+
+```{r}
+inegi_ie$Periodo <- ym(inegi_ie$Periodo)
+write.xlsx(inegi_ie, "./inegi_data.xlsx")
+glimpse(inegi_ie)
+
+```
+
+
+Clasificaremos en un subconjunto:
+
+```{r}
+Produccion <- names(inegi_ie)[2:6]
+Produccion
+Demanda <- names(inegi_ie)[7:8]
+Demanda
+Precios <- names(inegi_ie)[9:11]
+Precios
+Mercado_laboral <- names(inegi_ie)[12:15]
+Mercado_laboral
+Sector_externo <- names(inegi_ie)[16:21]
+Sector_externo
+Mercado_financiero <- names(inegi_ie)[22:28]
+Mercado_financiero
+Opinion <- names(inegi_ie)[29:34]
+Opinion
+Ind_EUA <- names(inegi_ie)[35:43]
+Ind_EUA
+
+```
+
+
+
+
+A continuación seleccionamos los indicadores de Producción, Precios, Sector externo y Mercado financiero. 
+
+
+```{r}
+inegi_subconjunto <- inegi_ie |> dplyr::select(Periodo, all_of(c(Produccion, Precios, Sector_externo, Mercado_financiero)))
+glimpse(inegi_subconjunto)
+```
+
+Contamos valores ausentes (NA).
+
+```{r}
+colSums(is.na(inegi_subconjunto))
+```
+
+
+
+Lo guardamos en un archivo xlsx para usarlo en los demas ejercicios.
+
+```{r}
+write.xlsx(inegi_subconjunto, "./inegi_subdata.xlsx")
+#La siguiente función lee los datos seleccionados:
+#inegi_subconjunto <- read.xlsx("./inegi_subdata.xlsx", detectDates = TRUE)
+```
+

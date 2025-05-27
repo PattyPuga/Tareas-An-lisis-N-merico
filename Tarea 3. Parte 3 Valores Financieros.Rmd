@@ -1,0 +1,305 @@
+---
+title: "Tarea 3."
+author: "Patty Puga"
+date: "2025-05-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(tidyverse)
+library(pracma)
+library(plotly)
+library(MASS)
+#library(ISLR2)
+library(car)
+library(corrplot)
+library(rgl)
+library(scatterPlotMatrix)
+
+
+library(openxlsx)
+library(readxl)
+library(writexl)
+library(quantmod)
+library(xts)
+library(zoo)
+library(dygraphs)
+knitr::knit_hooks$set(webgl = hook_webgl)
+
+```
+
+
+# Valores financieros
+
+Utilizamos el package `quantmod` para descargar valores financieros desde [Yahoo Finance](https://finance.yahoo.com/). 
+
+
+```{r}
+begin_date ="2021-01-01"
+end_date = "2025-03-03"
+getSymbols("QBTS", src = "yahoo", from = begin_date, to = end_date, periodicity = "daily")
+
+chartSeries(QBTS)
+```
+
+
+
+Descargamos los valores de 10 compañías (verificar que todas tengan valores en el periodo escogido), nótese que en cada caso se almacena como un objeto del tipo `xts` - `zoo` (series temporales).
+
+
+```{r}
+tickers <- c("QBTS", "AMZN", "META", "GOOG", "OKLO", "NFLX", "AMD", "MSFT", "DIS", "BA")
+getSymbols(tickers, src = "yahoo", from = begin_date, to = end_date, periodicity = "daily")
+class(QBTS)
+
+```
+
+
+A continuación se filtran los valores de cierre y se guarda como `precio_cierre.RDS` (este es un objeto del tipo xts-zoo, no es un data frame)
+
+```{r}
+lista <- lapply(tickers, function(x) Cl(get(x)))
+precio_cierre <- do.call(merge,lista)
+
+dygraph(precio_cierre)
+saveRDS(precio_cierre, "precio_cierre.RDS")
+# La siguiente función se utilizaría para leer el objeto precio_cierre.RDS
+#precio_cierre <- readRDS("precio_cierre.RDS")
+
+
+
+```
+
+
+
+Ahora convertimos las series de tiempo a un data frame y lo guardamos en un archivo xslx.
+
+
+```{r}
+precio_cierre_df <- as.data.frame(precio_cierre)
+precio_cierre_df <- mutate(precio_cierre_df, Fecha= index(precio_cierre), .before = 1)
+glimpse(precio_cierre)
+write.xlsx(precio_cierre_df, "precio_cierre.xlsx")
+```
+
+
+```{r}
+# Descargar datos históricos del ETF QBTS desde Yahoo Finance
+getSymbols("QBTS", src = "yahoo", from = "2020-01-01", auto.assign = TRUE)
+
+# Ver estructura de los datos
+head(QBTS)
+```
+
+**Precios de cierre**
+```{r}
+# Extraer solo el precio de cierre ajustado
+eww_adj <- Ad(QBTS)
+
+# Visualización interactiva con dygraphs
+dygraph(eww_adj, main = "Precio de Cierre Ajustado - QBTS") %>%
+  dyRangeSelector() %>%
+  dyOptions(colors = "hotpink")
+```
+
+**Rendimientos diarios y acumulados**
+```{r}
+# Rendimiento logarítmico diario
+eww_ret <- dailyReturn(eww_adj, type = "log")
+
+# Rendimiento acumulado
+eww_cum <- cumsum(eww_ret)
+
+# Graficar ambos
+par(mfrow = c(2, 1))
+plot(eww_ret, main = "Rendimiento Logarítmico Diario", col = "orange")
+plot(eww_cum, main = "Rendimiento Logarítmico Acumulado", col = "hotpink")
+par(mfrow = c(1, 1))
+
+```
+
+
+**Estadisticas**
+```{r}
+summary(eww_ret)
+sd(eww_ret, na.rm = TRUE)
+skewness <- function(x) mean((x - mean(x))^3) / sd(x)^3
+kurtosis <- function(x) mean((x - mean(x))^4) / sd(x)^4
+
+# Skewness y kurtosis
+skewness(na.omit(eww_ret))
+kurtosis(na.omit(eww_ret))
+```
+
+
+*Matriz de correlación**
+*Ahora crearemos una matriz de correlación, la cual nos ayudara a comparar distiuntos valores de varios ETF´s**los seleccionados para comparar con ""QBTS", "AMZN", "META", "GOOG", "OKLO", "NFLX", "AMD", "MSFT", "DIS", "BA"*
+
+
+
+```{r}
+# Descargar datos de otros ETFs
+symbols <- c("QBTS", "SPY", "EWZ", "ILF", "DIS", "BA")
+getSymbols(symbols, src = "yahoo", from = "2020-01-01", auto.assign = TRUE)
+
+```
+
+```{r}
+# Crear una lista con los precios ajustados
+prices <- list(
+  QBTS = Ad(QBTS),
+  SPY = Ad(SPY),
+  ILF = Ad(ILF),
+  DIS = Ad(DIS),
+  EWZ = Ad(EWZ),
+  BA = Ad(BA)
+)
+
+# Convertir a rendimientos logarítmicos diarios
+returns <- map(prices, ~ dailyReturn(.x, type = "log"))
+
+# Unir en un solo objeto xts
+returns_xts <- reduce(returns, merge)
+
+# Renombrar columnas
+colnames(returns_xts) <- names(prices)
+
+# Mostrar una muestra
+head(returns_xts)
+
+
+```
+
+
+```{r}
+# Calcular matriz de correlación
+cor_matrix <- cor(returns_xts, use = "complete.obs")
+
+# Visualizar con corrplot
+corrplot(cor_matrix, method = "color", type = "upper", 
+         addCoef.col = "black", tl.col = "black", 
+         title = "Matriz de Correlación de Rendimientos", mar = c(0,0,1,0))
+```
+
+**Regresiones multiples**
+
+
+```{r}
+# Convertir a data.frame (sin eliminar NA aún)
+returns_df <- as.data.frame(returns_xts)
+
+# Revisar resumen y estructura
+summary(returns_df)
+str(returns_df)
+
+# Si hay NA, los quitamos
+returns_df <- na.omit(returns_df)
+
+# Confirmar dimensiones
+dim(returns_df)
+
+
+```
+
+
+```{r}
+# Convertir a data.frame y eliminar NA
+returns_df <- na.omit(as.data.frame(returns_xts))
+
+# Vista previa de los datos
+head(returns_df)
+
+```
+
+```{r}
+# Regresión múltiple
+modelo <- lm(QBTS ~ SPY + ILF + DIS + EWZ + BA, data = returns_df)
+
+# Resumen del modelo
+summary(modelo)
+
+```
+
+```{r}
+# Residuales, normalidad y heterocedasticidad visual
+par(mfrow = c(2, 2))
+plot(modelo)
+par(mfrow = c(1, 1))
+```
+
+
+
+
+**Comparaciones** 
+
+*QBTS vs EWZ*
+```{r}
+# Gráfico de precios
+plot(merge(Ad(QBTS), Ad(EWZ)), main = "Precios Ajustados: QBTS vs EWZ", col = c("pink", "gray"))
+
+# Gráfico de rendimientos
+plot(merge(returns_xts$QBTS, returns_xts$EWZ), main = "Rendimientos: QBTS vs EWZ", col = c("pink", "gray"))
+
+# Regresión
+reg2 <- lm(QBTS ~ EWZ, data = returns_xts)
+summary(reg2)
+
+# Dispersión + recta de regresión
+plot(returns_xts$EWZ, returns_xts$EWW, 
+     main = "QBTS vs EWZ", xlab = "QBTS", ylab = "EWW", col = "gray", pch = 16)
+abline(reg2, col = "pink", lwd = 2)
+```
+
+El coeficiente de EWZ (0.2108) sugiere que, en promedio, un aumento de 1 unidad en los retornos de EWZ está asociado con un aumento de 0.21 unidades en los retornos de QBTS.
+
+Sin embargo, el valor-p de 0.0923 indica que este efecto no es estadísticamente significativo al 5%, aunque podría considerarse marginalmente significativo al 10% (de ahí el punto . en los códigos de significancia).
+
+El R² muy bajo (0.25%) muestra que EWZ por sí solo explica casi nada de la variabilidad de QBTS. Esto sugiere que QBTS se mueve por otros factores no capturados aquí (probablemente específicos de la empresa, sector, noticias, etc.).
+
+
+
+*Comparaciones QBTS vs ILF*
+
+
+```{r}
+# Gráfico de precios
+plot(merge(Ad(QBTS), Ad(ILF)), main = "Precios Ajustados: QBTS vs ILF", col = c("hotpink", "orange"))
+
+# Gráfico de rendimientos
+plot(merge(returns_xts$QBTS, returns_xts$ILF), main = "Rendimientos: QBTS vs ILF", col = c("hotpink", "orange"))
+
+# Regresión
+reg3 <- lm(QBTS ~ ILF, data = returns_xts)
+summary(reg3)
+
+# Dispersión + recta de regresión
+plot(returns_xts$ILF, returns_xts$QBTS, 
+     main = "QBTS vs ILF", xlab = "ILF", ylab = "QBTS", col = "orange", pch = 16)
+abline(reg3, col = "hotpink", lwd = 2)
+
+```
+
+
+
+
+
+
+**Comaparaciones Visuales**
+```{r}
+# Unir precios ajustados
+combined_prices <- merge(Ad(QBTS), Ad(SPY), Ad(EWZ), Ad(ILF))
+colnames(combined_prices) <- c("QBTS", "SPY", "EWZ", "ILF")
+
+# Graficar con dygraphs
+dygraph(combined_prices, main = "Precios Ajustados Comparados") %>%
+  dyRangeSelector() %>%
+  dyOptions(colors = c("hotpink", "purple", "yellow", "orange"))
+
+```
+
+
+
+
+
